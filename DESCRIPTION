@@ -2,7 +2,7 @@ Package: yamr
 Title: Client for the 'Yandex Metrica' API
 Version: 0.1.0
 Authors@R:
-    person("Artem", "Rogozhin", , "artemrogozhin@gmail.com", role = c("aut", "cre"))
+    person("Artem", "Rogozhin", , "tem19@live.ru", role = c("aut", "cre"))
 Description: Access the 'Yandex Metrica' web analytics API
     <https://yandex.com/dev/metrika/>. Currently covers the Logs API, which
     exports raw, non-aggregated session ('visits') and event ('hits') data:

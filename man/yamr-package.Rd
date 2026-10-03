@@ -11,12 +11,14 @@ Access the 'Yandex Metrica' web analytics API \url{https://yandex.com/dev/metrik
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://github.com/tem19/yamr}
   \item \url{https://yandex.com/dev/metrika/}
+  \item Report bugs at \url{https://github.com/tem19/yamr/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Artem Rogozhin \email{artemrogozhin@gmail.com}
+\strong{Maintainer}: Artem Rogozhin \email{tem19@live.ru}
 
 }
 \keyword{internal}
