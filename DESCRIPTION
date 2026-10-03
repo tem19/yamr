@@ -1,6 +1,6 @@
 Package: yamr
 Title: Client for the 'Yandex Metrica' API
-Version: 0.1.0
+Version: 0.1.1
 Authors@R:
     person("Artem", "Rogozhin", , "tem19@live.ru", role = c("aut", "cre"))
 Description: Access the 'Yandex Metrica' web analytics API
