@@ -1,0 +1,32 @@
+Package: yamr
+Title: Client for the 'Yandex Metrica' API
+Version: 0.1.0
+Authors@R:
+    person("Artem", "Rogozhin", , "artemrogozhin@gmail.com", role = c("aut", "cre"))
+Description: Access the 'Yandex Metrica' web analytics API
+    <https://yandex.com/dev/metrika/>. Currently covers the Logs API, which
+    exports raw, non-aggregated session ('visits') and event ('hits') data:
+    evaluating, creating, polling, downloading, and cleaning log requests,
+    with typed parsing of the exported data and OAuth authorization.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    cli,
+    httr2 (>= 1.1.0),
+    readr,
+    rlang,
+    stats,
+    tibble,
+    tools,
+    utils
+Suggests:
+    jsonlite,
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
+URL: https://github.com/tem19/yamr, https://yandex.com/dev/metrika/
+BugReports: https://github.com/tem19/yamr/issues
