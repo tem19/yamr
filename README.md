@@ -22,12 +22,22 @@ YANDEX_METRIKA_TOKEN=y0_AgAAAA...
 Токен также можно передать любой функции аргументом `token`.
 
 Если токена нет, его можно получить прямо из R. Для этого
-[создайте приложение](https://oauth.yandex.ru/client/new) с доступом `metrika:read`
-и добавьте Redirect URI `http://localhost:1410/`. Затем:
+[создайте приложение](https://oauth.yandex.ru/client/new) с доступом `metrika:read`.
+Затем выберите способ входа в зависимости от того, какой Redirect URI (Callback URL)
+указан у приложения:
 
 ```r
-ym_auth(client_id = "...", client_secret = "...")   # откроется браузер
-ym_auth(client_id = "...", client_secret = "...", flow = "device")  # для удалённых машин: код вводится на ya.ru/device
+# Redirect URI https://oauth.yandex.ru/verification_code (ставится автоматически
+# для приложений «Для доступа к API или отладки»): откроется браузер, Яндекс
+# покажет код, вставьте его в консоль. Работает и на удалённых машинах.
+ym_auth(client_id = "...", client_secret = "...")
+
+# Redirect URI http://localhost:1410/ (должен совпадать буква в букву):
+# код подхватывается сам, вставлять ничего не нужно.
+ym_auth(client_id = "...", client_secret = "...", flow = "localhost")
+
+# Ввод короткого кода на ya.ru/device.
+ym_auth(client_id = "...", client_secret = "...", flow = "device")
 ```
 
 Токен кешируется на диске (`tools::R_user_dir("yamr", "cache")`) и сам обновляется

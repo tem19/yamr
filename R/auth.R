@@ -9,14 +9,18 @@ yandex_oauth_url <- function() getOption("yamr.oauth_url", "https://oauth.yandex
 #'
 #' You need your own OAuth app, created at <https://oauth.yandex.ru/client/new>
 #' with the `metrika:read` access (plus `metrika:write` if you plan to use
-#' write methods later). Then:
+#' write methods later). Then pick a flow matching the app's Redirect URI:
 #'
-#' * `flow = "auth_code"` (default) opens the browser and catches the redirect
-#'   on a local port. Add `redirect_uri` (by default `http://localhost:1410/`)
-#'   to the app's "Redirect URI" list.
+#' * `flow = "code"` (default) opens the browser; after you allow access,
+#'   Yandex shows a confirmation code, which you paste into the R console.
+#'   Requires the Redirect URI `https://oauth.yandex.ru/verification_code`,
+#'   which Yandex sets for apps of the "For API access or debugging" type.
+#'   Works on remote machines too: open the printed link on any device.
+#' * `flow = "localhost"` opens the browser and catches the redirect on a
+#'   local port, so nothing has to be pasted. Add `redirect_uri` (by default
+#'   `http://localhost:1410/`, character for character) to the app's Redirect
+#'   URI list.
 #' * `flow = "device"` prints a short code to enter at <https://ya.ru/device>.
-#'   Use it on remote machines (RStudio Server, SSH) where the local redirect
-#'   can't reach R.
 #'
 #' Yandex tokens live for about a year and come with a refresh token, which
 #' yamr uses automatically once the token expires.
@@ -26,22 +30,22 @@ yandex_oauth_url <- function() getOption("yamr.oauth_url", "https://oauth.yandex
 #'
 #' @param client_id,client_secret Credentials of your OAuth app. Default to the
 #'   `YANDEX_CLIENT_ID` and `YANDEX_CLIENT_SECRET` environment variables.
-#' @param flow `"auth_code"` or `"device"`, see Details.
+#' @param flow `"code"`, `"localhost"` or `"device"`, see Details.
 #' @param cache Store the token on disk (in [tools::R_user_dir()]) and reuse
 #'   it in later sessions.
-#' @param redirect_uri Redirect URI for the `"auth_code"` flow; must be
-#'   registered in the app.
+#' @param redirect_uri Redirect URI for the `"localhost"` flow; must exactly
+#'   match one registered in the app.
 #' @param force Ignore the cached token and authorize again.
 #' @return The access token (a string), invisibly.
 #' @export
 #' @examples
 #' \dontrun{
 #' ym_auth("your-client-id", "your-client-secret")
-#' ym_auth(flow = "device")
+#' ym_auth(flow = "localhost")
 #' }
 ym_auth <- function(client_id = Sys.getenv("YANDEX_CLIENT_ID"),
                     client_secret = Sys.getenv("YANDEX_CLIENT_SECRET"),
-                    flow = c("auth_code", "device"),
+                    flow = c("code", "localhost", "device"),
                     cache = TRUE,
                     redirect_uri = "http://localhost:1410/",
                     force = FALSE) {
@@ -69,7 +73,8 @@ ym_auth <- function(client_id = Sys.getenv("YANDEX_CLIENT_ID"),
   token <- if (!force && !is.null(path) && file.exists(path)) readRDS(path)
   if (is.null(token)) {
     token <- switch(flow,
-      auth_code = httr2::oauth_flow_auth_code(
+      code = yandex_flow_code(client, client_secret),
+      localhost = httr2::oauth_flow_auth_code(
         client,
         auth_url = paste0(yandex_oauth_url(), "/authorize"),
         redirect_uri = redirect_uri
@@ -182,22 +187,11 @@ yandex_flow_device <- function(client, client_secret) {
   cli::cli_progress_message("Waiting for confirmation...")
   while (Sys.time() < deadline) {
     Sys.sleep(interval)
-    req <- httr2::request(client$token_url)
-    req <- httr2::req_body_form(req,
-      grant_type = "device_code", code = dev$device_code,
-      client_id = client$id, client_secret = client_secret
-    )
-    req <- httr2::req_error(req, is_error = function(resp) FALSE)
-    resp <- httr2::req_perform(req)
-    body <- httr2::resp_body_json(resp, check_type = FALSE)
-    if (httr2::resp_status(resp) == 200) {
-      return(httr2::oauth_token(
-        access_token = body$access_token,
-        token_type = body$token_type %||% "bearer",
-        expires_in = body$expires_in,
-        refresh_token = body$refresh_token
-      ))
+    res <- yandex_token_request(client, client_secret, grant_type = "device_code", code = dev$device_code)
+    if (!is.null(res$token)) {
+      return(res$token)
     }
+    body <- res$body
     if (identical(body$error, "authorization_pending")) next
     if (identical(body$error, "slow_down")) {
       interval <- interval + 5
@@ -206,4 +200,55 @@ yandex_flow_device <- function(client, client_secret) {
     cli::cli_abort("Device authorization failed: {body$error_description %||% body$error}")
   }
   cli::cli_abort("Device code expired before it was confirmed. Run {.fun ym_auth} again.")
+}
+
+# Authorization code flow with the code pasted by the user. Unlike
+# httr2::oauth_flow_auth_code(), it doesn't ask for the `state` parameter,
+# which Yandex's verification_code page doesn't show. `redirect_uri` is
+# omitted, so Yandex uses the one registered in the app.
+yandex_flow_code <- function(client, client_secret) {
+  url <- httr2::req_url_query(
+    httr2::request(paste0(yandex_oauth_url(), "/authorize")),
+    response_type = "code", client_id = client$id
+  )$url
+  cli::cli_alert_info("Open {.url {url}}, allow access and copy the confirmation code.")
+  if (interactive()) utils::browseURL(url)
+  code <- read_auth_code()
+  if (!nzchar(code)) {
+    cli::cli_abort("No confirmation code entered.")
+  }
+  res <- yandex_token_request(client, client_secret, grant_type = "authorization_code", code = code)
+  if (is.null(res$token)) {
+    cli::cli_abort("Authorization failed: {res$body$error_description %||% res$body$error}")
+  }
+  res$token
+}
+
+read_auth_code <- function() {
+  if (!interactive()) {
+    cli::cli_abort(c(
+      "{.code flow = \"code\"} needs an interactive session to paste the code.",
+      i = "Set {.envvar YANDEX_METRIKA_TOKEN} instead."
+    ))
+  }
+  trimws(readline("Confirmation code: "))
+}
+
+# POSTs to the token endpoint. Returns list(token = <httr2_token>) on success,
+# or list(body = <error response>) so callers can handle OAuth errors.
+yandex_token_request <- function(client, client_secret, ...) {
+  req <- httr2::request(client$token_url)
+  req <- httr2::req_body_form(req, ..., client_id = client$id, client_secret = client_secret)
+  req <- httr2::req_error(req, is_error = function(resp) FALSE)
+  resp <- httr2::req_perform(req)
+  body <- httr2::resp_body_json(resp, check_type = FALSE)
+  if (httr2::resp_status(resp) != 200 || is.null(body$access_token)) {
+    return(list(body = body))
+  }
+  list(token = httr2::oauth_token(
+    access_token = body$access_token,
+    token_type = body$token_type %||% "bearer",
+    expires_in = body$expires_in,
+    refresh_token = body$refresh_token
+  ))
 }

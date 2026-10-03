@@ -63,3 +63,28 @@ test_that("device flow follows Yandex's protocol", {
   expect_equal(tok$access_token, "dev-token")
   expect_equal(polls, 2)
 })
+
+test_that("code flow exchanges the pasted code without asking for state", {
+  local_mocked_bindings(read_auth_code = function() "123456")
+  sent <- NULL
+  httr2::local_mocked_responses(function(req) {
+    sent <<- req$body$data
+    json_resp(list(access_token = "code-token", token_type = "bearer", expires_in = 3600, refresh_token = "r"))
+  })
+  client <- httr2::oauth_client("id", "https://oauth.yandex.ru/token", secret = "s")
+  expect_message(tok <- yandex_flow_code(client, "s"), "response_type=code")
+  expect_equal(tok$access_token, "code-token")
+  expect_false(is.null(tok$expires_at))
+  expect_equal(sent$grant_type, "authorization_code", ignore_attr = TRUE)
+  expect_equal(sent$code, "123456", ignore_attr = TRUE)
+  expect_null(sent$redirect_uri)
+})
+
+test_that("code flow reports OAuth errors", {
+  local_mocked_bindings(read_auth_code = function() "bad")
+  httr2::local_mocked_responses(function(req) {
+    json_resp(list(error = "invalid_grant", error_description = "Code has expired"), status = 400)
+  })
+  client <- httr2::oauth_client("id", "https://oauth.yandex.ru/token", secret = "s")
+  expect_error(suppressMessages(yandex_flow_code(client, "s")), "Code has expired")
+})

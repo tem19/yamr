@@ -7,7 +7,7 @@
 ym_auth(
   client_id = Sys.getenv("YANDEX_CLIENT_ID"),
   client_secret = Sys.getenv("YANDEX_CLIENT_SECRET"),
-  flow = c("auth_code", "device"),
+  flow = c("code", "localhost", "device"),
   cache = TRUE,
   redirect_uri = "http://localhost:1410/",
   force = FALSE
@@ -17,13 +17,13 @@ ym_auth(
 \item{client_id, client_secret}{Credentials of your OAuth app. Default to the
 \code{YANDEX_CLIENT_ID} and \code{YANDEX_CLIENT_SECRET} environment variables.}
 
-\item{flow}{\code{"auth_code"} or \code{"device"}, see Details.}
+\item{flow}{\code{"code"}, \code{"localhost"} or \code{"device"}, see Details.}
 
 \item{cache}{Store the token on disk (in \code{\link[tools:userdir]{tools::R_user_dir()}}) and reuse
 it in later sessions.}
 
-\item{redirect_uri}{Redirect URI for the \code{"auth_code"} flow; must be
-registered in the app.}
+\item{redirect_uri}{Redirect URI for the \code{"localhost"} flow; must exactly
+match one registered in the app.}
 
 \item{force}{Ignore the cached token and authorize again.}
 }
@@ -39,14 +39,18 @@ via \code{token}, or set once in the \code{YANDEX_METRIKA_TOKEN} environment var
 \details{
 You need your own OAuth app, created at \url{https://oauth.yandex.ru/client/new}
 with the \code{metrika:read} access (plus \code{metrika:write} if you plan to use
-write methods later). Then:
+write methods later). Then pick a flow matching the app's Redirect URI:
 \itemize{
-\item \code{flow = "auth_code"} (default) opens the browser and catches the redirect
-on a local port. Add \code{redirect_uri} (by default \verb{http://localhost:1410/})
-to the app's "Redirect URI" list.
+\item \code{flow = "code"} (default) opens the browser; after you allow access,
+Yandex shows a confirmation code, which you paste into the R console.
+Requires the Redirect URI \verb{https://oauth.yandex.ru/verification_code},
+which Yandex sets for apps of the "For API access or debugging" type.
+Works on remote machines too: open the printed link on any device.
+\item \code{flow = "localhost"} opens the browser and catches the redirect on a
+local port, so nothing has to be pasted. Add \code{redirect_uri} (by default
+\verb{http://localhost:1410/}, character for character) to the app's Redirect
+URI list.
 \item \code{flow = "device"} prints a short code to enter at \url{https://ya.ru/device}.
-Use it on remote machines (RStudio Server, SSH) where the local redirect
-can't reach R.
 }
 
 Yandex tokens live for about a year and come with a refresh token, which
@@ -58,6 +62,6 @@ then \code{YANDEX_METRIKA_TOKEN}, then the token obtained by \code{ym_auth()}.
 \examples{
 \dontrun{
 ym_auth("your-client-id", "your-client-secret")
-ym_auth(flow = "device")
+ym_auth(flow = "localhost")
 }
 }
